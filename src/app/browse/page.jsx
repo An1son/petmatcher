@@ -11,6 +11,7 @@ import { createClient } from '@/lib/supabase/client';
 
 export default function BrowsePage() {
   const router = useRouter();
+  const [exitDirection, setExitDirection] = useState(0);
   const [pets, setPets] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -114,6 +115,7 @@ export default function BrowsePage() {
 
   const handleSwipe = useCallback(
     async (direction) => {
+      setExitDirection(direction === 'right' ? 1 : -1);
       if (!currentPet || !userId) return;
 
       const interactionType = direction === 'right' ? 'like' : 'skip';
@@ -364,102 +366,114 @@ export default function BrowsePage() {
             <p className="text-gray-600">Loading pets...</p>
           </div>
         ) : (
-        <AnimatePresence mode="popLayout">
-          {currentPet ? (
-            <motion.div
-              key={currentPet.id}
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="relative w-full max-w-sm"
-            >
-              {/* Pet Card */}
-              <div className="overflow-hidden rounded-2xl bg-white shadow-xl">
-                {/* Pet Image */}
-                <div
-                  className="relative aspect-[3/4] w-full bg-cover bg-center"
-                  style={{ backgroundImage: `url(${currentPet.photos[0]})` }}
-                >
-                  {/* Gradient overlay */}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
-
-                  {/* Match percentage badge */}
-                  <div className="absolute left-4 top-4">
-                    <span className="rounded-full bg-orange-500 px-3 py-1 text-sm font-semibold text-white shadow">
-                      {matchPercent}% Match
-                    </span>
-                  </div>
-
-                  {/* Info button */}
-                  <button
-                    onClick={handleViewDetails}
-                    className="absolute right-4 top-4 rounded-full bg-white/20 p-2 backdrop-blur-sm transition hover:bg-white/30"
-                    aria-label="View pet details"
+          <AnimatePresence mode="popLayout">
+            {currentPet ? (
+              <motion.div
+                key={currentPet.id}
+                drag="x"
+                dragConstraints={{ left: 0, right: 0 }}
+                dragElastic={0.7}
+                onDragEnd={(e, { offset, velocity }) => {
+                  const swipe = offset.x;
+                  if (swipe > 100 || velocity.x > 500) {
+                    handleSwipe('right');
+                  } else if (swipe < -100 || velocity.x < -500) {
+                    handleSwipe('left');
+                  }
+                }}
+                initial={{ scale: 0.95, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ x: exitDirection * 300, scale: 0.95, opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                className="relative w-full max-w-sm cursor-grab active:cursor-grabbing"
+              >
+                {/* Pet Card */}
+                <div className="overflow-hidden rounded-2xl bg-white shadow-xl">
+                  {/* Pet Image */}
+                  <div
+                    className="relative aspect-[3/4] w-full bg-cover bg-center"
+                    style={{ backgroundImage: `url(${currentPet.photos[0]})` }}
                   >
-                    <Info className="h-5 w-5 text-white" />
-                  </button>
+                    {/* Gradient overlay */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
 
-                  {/* Pet info overlay */}
-                  <div className="absolute bottom-0 left-0 right-0 p-4 text-white">
-                    <h2 className="text-2xl font-bold">{currentPet.name}</h2>
-                    <p className="text-sm opacity-90">
-                      {currentPet.breed} · {formatAge(currentPet.age_years)} ·{' '}
-                      {capitalize(currentPet.size)}
-                    </p>
-                    <p className="mt-1 text-sm opacity-80">
-                      {currentPet.city}, {currentPet.province}
-                      {currentPet.adoption_fee != null && (
-                        <span className="ml-2 font-semibold">${Number(currentPet.adoption_fee).toFixed(0)}</span>
-                      )}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Match reasons */}
-                {matchReasons.length > 0 && (
-                  <div className="flex flex-wrap gap-2 px-4 py-3">
-                    {matchReasons.map((reason) => (
-                      <span
-                        key={reason}
-                        className="rounded-full bg-orange-100 px-3 py-1 text-xs font-medium text-orange-700"
-                      >
-                        {reason}
+                    {/* Match percentage badge */}
+                    <div className="absolute left-4 top-4">
+                      <span className="rounded-full bg-orange-500 px-3 py-1 text-sm font-semibold text-white shadow">
+                        {matchPercent}% Match
                       </span>
-                    ))}
+                    </div>
+
+                    {/* Info button */}
+                    <button
+                      onClick={handleViewDetails}
+                      className="absolute right-4 top-4 rounded-full bg-white/20 p-2 backdrop-blur-sm transition hover:bg-white/30"
+                      aria-label="View pet details"
+                    >
+                      <Info className="h-5 w-5 text-white" />
+                    </button>
+
+                    {/* Pet info overlay */}
+                    <div className="absolute bottom-0 left-0 right-0 p-4 text-white">
+                      <h2 className="text-2xl font-bold">{currentPet.name}</h2>
+                      <p className="text-sm opacity-90">
+                        {currentPet.breed} · {formatAge(currentPet.age_years)} ·{' '}
+                        {capitalize(currentPet.size)}
+                      </p>
+                      <p className="mt-1 text-sm opacity-80">
+                        {currentPet.city}, {currentPet.province}
+                        {currentPet.adoption_fee != null && (
+                          <span className="ml-2 font-semibold">${Number(currentPet.adoption_fee).toFixed(0)}</span>
+                        )}
+                      </p>
+                    </div>
                   </div>
+
+                  {/* Match reasons */}
+                  {matchReasons.length > 0 && (
+                    <div className="flex flex-wrap gap-2 px-4 py-3">
+                      {matchReasons.map((reason) => (
+                        <span
+                          key={reason}
+                          className="rounded-full bg-orange-100 px-3 py-1 text-xs font-medium text-orange-700"
+                        >
+                          {reason}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            ) : (
+              <div className="text-center">
+                {error ? (
+                  <>
+                    <div className="mb-4 text-6xl">&#9888;&#65039;</div>
+                    <h2 className="mb-2 text-xl font-bold">Error loading pets</h2>
+                    <p className="mb-4 text-gray-600">{error}</p>
+                    <Button onClick={() => window.location.reload()}>Try Again</Button>
+                  </>
+                ) : pets.length === 0 ? (
+                  <>
+                    <div className="mb-4 text-6xl">&#128062;</div>
+                    <h2 className="mb-2 text-xl font-bold">No pets available</h2>
+                    <p className="mb-4 text-gray-600">
+                      There are no pets listed yet. Check back soon!
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <div className="mb-4 text-6xl">&#127881;</div>
+                    <h2 className="mb-2 text-xl font-bold">You&apos;ve seen all pets!</h2>
+                    <p className="mb-4 text-gray-600">
+                      Check back later for new arrivals.
+                    </p>
+                    <Button onClick={handleStartOver}>Start Over</Button>
+                  </>
                 )}
               </div>
-            </motion.div>
-          ) : (
-            <div className="text-center">
-              {error ? (
-                <>
-                  <div className="mb-4 text-6xl">&#9888;&#65039;</div>
-                  <h2 className="mb-2 text-xl font-bold">Error loading pets</h2>
-                  <p className="mb-4 text-gray-600">{error}</p>
-                  <Button onClick={() => window.location.reload()}>Try Again</Button>
-                </>
-              ) : pets.length === 0 ? (
-                <>
-                  <div className="mb-4 text-6xl">&#128062;</div>
-                  <h2 className="mb-2 text-xl font-bold">No pets available</h2>
-                  <p className="mb-4 text-gray-600">
-                    There are no pets listed yet. Check back soon!
-                  </p>
-                </>
-              ) : (
-                <>
-                  <div className="mb-4 text-6xl">&#127881;</div>
-                  <h2 className="mb-2 text-xl font-bold">You&apos;ve seen all pets!</h2>
-                  <p className="mb-4 text-gray-600">
-                    Check back later for new arrivals.
-                  </p>
-                  <Button onClick={handleStartOver}>Start Over</Button>
-                </>
-              )}
-            </div>
-          )}
-        </AnimatePresence>
+            )}
+          </AnimatePresence>
         )}
       </div>
 
