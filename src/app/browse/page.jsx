@@ -18,8 +18,6 @@ const SwipeableCard = ({
   exitDirection,
 }) => {
   const x = useMotionValue(0);
-  const opacityRight = useTransform(x, [20, 100], [0, 1]);
-  const opacityLeft = useTransform(x, [-20, -100], [0, 1]);
   const rotation = useTransform(x, [-200, 200], [-15, 15]);
 
   return (
@@ -44,21 +42,6 @@ const SwipeableCard = ({
     >
       {/* Pet Card */}
       <div className="relative overflow-hidden rounded-2xl bg-white shadow-xl">
-        {/* Stamps positioned absolute over the card */}
-        <motion.div
-          className="absolute right-8 top-8 z-20 rotate-12 rounded-lg border-4 border-red-500 bg-black/10 px-4 py-1 text-4xl font-bold tracking-widest text-red-500 shadow-sm"
-          style={{ opacity: opacityLeft }}
-        >
-          NOPE
-        </motion.div>
-
-        <motion.div
-          className="absolute left-8 top-8 z-20 -rotate-12 rounded-lg border-4 border-green-500 bg-black/10 px-4 py-1 text-4xl font-bold tracking-widest text-green-500 shadow-sm"
-          style={{ opacity: opacityRight }}
-        >
-          LIKE
-        </motion.div>
-
         {/* Pet Image */}
         <div
           className="relative aspect-[3/4] w-full bg-cover bg-center"
