@@ -11,27 +11,50 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { createClient } from '@/lib/supabase/client';
 
+const NAME_REGEX = /^[\p{L}\p{M}][\p{L}\p{M}\s'.\-]*$/u;
+const PHONE_REGEX = /^[\d\s()+\-.]+$/;
+const CITY_REGEX = /^[\p{L}\p{M}][\p{L}\p{M}\s'.\-]*$/u;
+const PROVINCE_REGEX = /^[A-Z]{2,3}$/;
+
 const baseSchema = z.object({
-  name: z.string().min(2, 'Name must be at least 2 characters'),
-  email: z.string().email('Please enter a valid email'),
+  name: z
+    .string()
+    .trim()
+    .min(2, 'Name must be at least 2 characters')
+    .max(100, 'Name is too long')
+    .regex(NAME_REGEX, 'Name contains invalid characters'),
+  email: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .email('Please enter a valid email')
+    .max(254, 'Email is too long'),
   password: z
     .string()
     .min(8, 'Password must be at least 8 characters')
+    .max(128, 'Password must be at most 128 characters')
     .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
     .regex(/[0-9]/, 'Password must contain at least one number'),
   confirmPassword: z.string(),
   role: z.enum(['adopter', 'shelter']),
   // Adopter preference fields
-  preferredPetTypes: z.array(z.string()).default(['dog', 'cat']),
+  preferredPetTypes: z
+    .array(z.enum(['dog', 'cat', 'rabbit', 'other']))
+    .default(['dog', 'cat']),
   activityLevel: z.enum(['low', 'medium', 'high']).default('medium'),
   hasChildren: z.boolean().default(false),
   hasOtherPets: z.boolean().default(false),
   // Shelter-specific fields (optional, validated conditionally)
-  shelterName: z.string().optional(),
-  shelterPhone: z.string().optional(),
-  shelterAddress: z.string().optional(),
-  shelterCity: z.string().optional(),
-  shelterProvince: z.string().optional(),
+  shelterName: z.string().trim().max(200, 'Shelter name is too long').optional(),
+  shelterPhone: z.string().trim().max(20, 'Phone number is too long').optional(),
+  shelterAddress: z.string().trim().max(200, 'Address is too long').optional(),
+  shelterCity: z.string().trim().max(100, 'City is too long').optional(),
+  shelterProvince: z
+    .string()
+    .trim()
+    .toUpperCase()
+    .max(3, 'Use a 2-3 letter province code')
+    .optional(),
 });
 
 const registerSchema = baseSchema
@@ -42,7 +65,11 @@ const registerSchema = baseSchema
   .refine(
     (data) => {
       if (data.role === 'shelter') {
-        return data.shelterName && data.shelterName.length >= 2;
+        return (
+          !!data.shelterName &&
+          data.shelterName.length >= 2 &&
+          data.shelterName.length <= 200
+        );
       }
       return true;
     },
@@ -51,16 +78,23 @@ const registerSchema = baseSchema
   .refine(
     (data) => {
       if (data.role === 'shelter') {
-        return data.shelterPhone && data.shelterPhone.length >= 10;
+        if (!data.shelterPhone) return false;
+        if (!PHONE_REGEX.test(data.shelterPhone)) return false;
+        const digits = data.shelterPhone.replace(/\D/g, '');
+        return digits.length >= 10 && digits.length <= 15;
       }
       return true;
     },
-    { message: 'Valid phone number is required', path: ['shelterPhone'] }
+    { message: 'Enter a valid phone number (10-15 digits)', path: ['shelterPhone'] }
   )
   .refine(
     (data) => {
       if (data.role === 'shelter') {
-        return data.shelterAddress && data.shelterAddress.length >= 5;
+        return (
+          !!data.shelterAddress &&
+          data.shelterAddress.length >= 5 &&
+          data.shelterAddress.length <= 200
+        );
       }
       return true;
     },
@@ -69,11 +103,24 @@ const registerSchema = baseSchema
   .refine(
     (data) => {
       if (data.role === 'shelter') {
-        return data.shelterCity && data.shelterCity.length >= 2;
+        return (
+          !!data.shelterCity &&
+          data.shelterCity.length >= 2 &&
+          CITY_REGEX.test(data.shelterCity)
+        );
       }
       return true;
     },
-    { message: 'City is required', path: ['shelterCity'] }
+    { message: 'Enter a valid city', path: ['shelterCity'] }
+  )
+  .refine(
+    (data) => {
+      if (data.role === 'shelter') {
+        return !!data.shelterProvince && PROVINCE_REGEX.test(data.shelterProvince);
+      }
+      return true;
+    },
+    { message: 'Use a 2-3 letter province code (e.g., BC)', path: ['shelterProvince'] }
   );
 
 export default function RegisterPage() {

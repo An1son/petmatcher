@@ -12,8 +12,16 @@ import { Input } from '@/components/ui/input';
 import { createClient } from '@/lib/supabase/client';
 
 const loginSchema = z.object({
-  email: z.string().email('Please enter a valid email'),
-  password: z.string().min(1, 'Password is required'),
+  email: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .email('Please enter a valid email')
+    .max(254, 'Email is too long'),
+  password: z
+    .string()
+    .min(1, 'Password is required')
+    .max(128, 'Password is too long'),
 });
 
 function LoginForm() {
