@@ -2,12 +2,120 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useMotionValue, useTransform } from 'framer-motion';
 import { X, Heart, RotateCcw, Info, Loader2, SlidersHorizontal, ChevronUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { BottomNav } from '@/components/layout/bottom-nav';
 import { formatAge, capitalize, getMatchReasons, scoreAndSortPets } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
+
+const SwipeableCard = ({
+  pet,
+  handleSwipe,
+  handleViewDetails,
+  matchPercent,
+  matchReasons,
+  exitDirection,
+}) => {
+  const x = useMotionValue(0);
+  const opacityRight = useTransform(x, [20, 100], [0, 1]);
+  const opacityLeft = useTransform(x, [-20, -100], [0, 1]);
+  const rotation = useTransform(x, [-200, 200], [-15, 15]);
+
+  return (
+    <motion.div
+      drag="x"
+      dragConstraints={{ left: 0, right: 0 }}
+      dragElastic={0.7}
+      style={{ x, rotate: rotation }}
+      onDragEnd={(e, { offset, velocity }) => {
+        const swipe = offset.x;
+        if (swipe > 100 || velocity.x > 500) {
+          handleSwipe('right');
+        } else if (swipe < -100 || velocity.x < -500) {
+          handleSwipe('left');
+        }
+      }}
+      initial={{ scale: 0.95, opacity: 0 }}
+      animate={{ scale: 1, opacity: 1, x: 0, rotate: 0 }}
+      exit={{ x: exitDirection * 300, scale: 0.95, opacity: 0 }}
+      transition={{ duration: 0.2 }}
+      className="relative w-full max-w-sm cursor-grab active:cursor-grabbing"
+    >
+      {/* Pet Card */}
+      <div className="relative overflow-hidden rounded-2xl bg-white shadow-xl">
+        {/* Stamps positioned absolute over the card */}
+        <motion.div
+          className="absolute right-8 top-8 z-20 rotate-12 rounded-lg border-4 border-red-500 bg-black/10 px-4 py-1 text-4xl font-bold tracking-widest text-red-500 shadow-sm"
+          style={{ opacity: opacityLeft }}
+        >
+          NOPE
+        </motion.div>
+
+        <motion.div
+          className="absolute left-8 top-8 z-20 -rotate-12 rounded-lg border-4 border-green-500 bg-black/10 px-4 py-1 text-4xl font-bold tracking-widest text-green-500 shadow-sm"
+          style={{ opacity: opacityRight }}
+        >
+          LIKE
+        </motion.div>
+
+        {/* Pet Image */}
+        <div
+          className="relative aspect-[3/4] w-full bg-cover bg-center"
+          style={{ backgroundImage: `url(${pet.photos[0]})` }}
+        >
+          {/* Gradient overlay */}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
+
+          {/* Match percentage badge */}
+          <div className="absolute left-4 top-4 z-10">
+            <span className="rounded-full bg-orange-500 px-3 py-1 text-sm font-semibold text-white shadow">
+              {matchPercent}% Match
+            </span>
+          </div>
+
+          {/* Info button */}
+          <button
+            onClick={handleViewDetails}
+            className="absolute right-4 top-4 z-30 rounded-full bg-white/20 p-2 backdrop-blur-sm transition hover:bg-white/30"
+            aria-label="View pet details"
+          >
+            <Info className="h-5 w-5 text-white" />
+          </button>
+
+          {/* Pet info overlay */}
+          <div className="pointer-events-none absolute bottom-0 left-0 right-0 z-10 p-4 text-white">
+            <h2 className="text-2xl font-bold">{pet.name}</h2>
+            <p className="text-sm opacity-90">
+              {pet.breed} · {formatAge(pet.age_years)} ·{' '}
+              {capitalize(pet.size)}
+            </p>
+            <p className="mt-1 text-sm opacity-80">
+              {pet.city}, {pet.province}
+              {pet.adoption_fee != null && (
+                <span className="ml-2 font-semibold">${Number(pet.adoption_fee).toFixed(0)}</span>
+              )}
+            </p>
+          </div>
+        </div>
+
+        {/* Match reasons */}
+        {matchReasons.length > 0 && (
+          <div className="pointer-events-none flex flex-wrap gap-2 px-4 py-3">
+            {matchReasons.map((reason) => (
+              <span
+                key={reason}
+                className="rounded-full bg-orange-100 px-3 py-1 text-xs font-medium text-orange-700"
+              >
+                {reason}
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+    </motion.div>
+  );
+};
 
 export default function BrowsePage() {
   const router = useRouter();
@@ -368,82 +476,15 @@ export default function BrowsePage() {
         ) : (
           <AnimatePresence mode="popLayout">
             {currentPet ? (
-              <motion.div
+              <SwipeableCard
                 key={currentPet.id}
-                drag="x"
-                dragConstraints={{ left: 0, right: 0 }}
-                dragElastic={0.7}
-                onDragEnd={(e, { offset, velocity }) => {
-                  const swipe = offset.x;
-                  if (swipe > 100 || velocity.x > 500) {
-                    handleSwipe('right');
-                  } else if (swipe < -100 || velocity.x < -500) {
-                    handleSwipe('left');
-                  }
-                }}
-                initial={{ scale: 0.95, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                exit={{ x: exitDirection * 300, scale: 0.95, opacity: 0 }}
-                transition={{ duration: 0.2 }}
-                className="relative w-full max-w-sm cursor-grab active:cursor-grabbing"
-              >
-                {/* Pet Card */}
-                <div className="overflow-hidden rounded-2xl bg-white shadow-xl">
-                  {/* Pet Image */}
-                  <div
-                    className="relative aspect-[3/4] w-full bg-cover bg-center"
-                    style={{ backgroundImage: `url(${currentPet.photos[0]})` }}
-                  >
-                    {/* Gradient overlay */}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
-
-                    {/* Match percentage badge */}
-                    <div className="absolute left-4 top-4">
-                      <span className="rounded-full bg-orange-500 px-3 py-1 text-sm font-semibold text-white shadow">
-                        {matchPercent}% Match
-                      </span>
-                    </div>
-
-                    {/* Info button */}
-                    <button
-                      onClick={handleViewDetails}
-                      className="absolute right-4 top-4 rounded-full bg-white/20 p-2 backdrop-blur-sm transition hover:bg-white/30"
-                      aria-label="View pet details"
-                    >
-                      <Info className="h-5 w-5 text-white" />
-                    </button>
-
-                    {/* Pet info overlay */}
-                    <div className="absolute bottom-0 left-0 right-0 p-4 text-white">
-                      <h2 className="text-2xl font-bold">{currentPet.name}</h2>
-                      <p className="text-sm opacity-90">
-                        {currentPet.breed} · {formatAge(currentPet.age_years)} ·{' '}
-                        {capitalize(currentPet.size)}
-                      </p>
-                      <p className="mt-1 text-sm opacity-80">
-                        {currentPet.city}, {currentPet.province}
-                        {currentPet.adoption_fee != null && (
-                          <span className="ml-2 font-semibold">${Number(currentPet.adoption_fee).toFixed(0)}</span>
-                        )}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Match reasons */}
-                  {matchReasons.length > 0 && (
-                    <div className="flex flex-wrap gap-2 px-4 py-3">
-                      {matchReasons.map((reason) => (
-                        <span
-                          key={reason}
-                          className="rounded-full bg-orange-100 px-3 py-1 text-xs font-medium text-orange-700"
-                        >
-                          {reason}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </motion.div>
+                pet={currentPet}
+                handleSwipe={handleSwipe}
+                handleViewDetails={handleViewDetails}
+                matchPercent={matchPercent}
+                matchReasons={matchReasons}
+                exitDirection={exitDirection}
+              />
             ) : (
               <div className="text-center">
                 {error ? (
