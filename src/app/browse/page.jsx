@@ -120,6 +120,7 @@ export default function BrowsePage() {
   const [filterMaxFee, setFilterMaxFee] = useState('');
   const [availableProvinces, setAvailableProvinces] = useState([]);
   const [availableCities, setAvailableCities] = useState([]);
+  const [showToast, setShowToast] = useState(null); // 'liked' | 'passed' | null
 
   // Fetch pets, preferences, and interactions from Supabase
   useEffect(() => {
@@ -213,9 +214,14 @@ export default function BrowsePage() {
 
       if (direction === 'right') {
         setLikedCount((prev) => prev + 1);
+        setShowToast('liked');
       } else {
         setPassedCount((prev) => prev + 1);
+        setShowToast('passed');
       }
+
+      // Auto-hide toast after 1.5 seconds
+      setTimeout(() => setShowToast(null), 1500);
 
       setLastSwipedPet(currentPet);
       setCurrentIndex((prev) => prev + 1);
@@ -298,8 +304,9 @@ export default function BrowsePage() {
     if (!userPreferences || allPetsRef.current.length === 0) return;
 
     const allPets = allPetsRef.current;
-    const seenIds = new Set(userInteractions.map((i) => i.pet_id));
-    let unseenPets = allPets.filter((p) => !seenIds.has(p.id));
+    // Only show pets that haven't been liked (skip interactions are OK to show again)
+    const likedIds = new Set(userInteractions.filter((i) => i.type === 'like' || i.type === 'favourite').map((i) => i.pet_id));
+    let unseenPets = allPets.filter((p) => !likedIds.has(p.id));
     unseenPets = applyFilters(unseenPets, filterProvince, filterCity, filterMaxFee);
 
     const sorted = scoreAndSortPets(unseenPets, userPreferences, userInteractions, allPets);
@@ -355,21 +362,33 @@ export default function BrowsePage() {
 
   return (
     <main className="flex min-h-dvh flex-col pb-20">
-      {/* Header */}
-      <header className="flex items-center justify-between px-4 py-3">
-        <div className="text-sm">
-          <span className="rounded-full bg-green-100 px-3 py-1 text-green-700">
-            Liked: {likedCount}
-          </span>
+      {/* Like/Pass Toast */}
+      {showToast && (
+        <div
+          className={`fixed top-4 left-1/2 z-50 -translate-x-1/2 transform rounded-full px-6 py-3 shadow-lg transition-all ${
+            showToast === 'liked'
+              ? 'bg-green-500 text-white'
+              : 'bg-gray-500 text-white'
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            {showToast === 'liked' ? (
+              <Heart className="h-5 w-5 fill-current" />
+            ) : (
+              <X className="h-5 w-5" />
+            )}
+            <span className="font-semibold">
+              {showToast === 'liked' ? 'Added to Favorites!' : 'Passed'}
+            </span>
+          </div>
         </div>
+      )}
+
+      {/* Header */}
+      <header className="flex items-center justify-center px-4 py-3">
         <h1 className="text-xl font-bold">
           pet<span className="text-orange-500">Matcher</span>
         </h1>
-        <div className="text-sm">
-          <span className="rounded-full bg-gray-100 px-3 py-1 text-gray-600">
-            Passed: {passedCount}
-          </span>
-        </div>
       </header>
 
       {/* Filter Bar */}

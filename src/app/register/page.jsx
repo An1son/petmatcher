@@ -28,7 +28,7 @@ const baseSchema = z.object({
     .trim()
     .toLowerCase()
     .email('Please enter a valid email')
-    .max(254, 'Email is too long'),
+    .max(100, 'Email is too long'),
   password: z
     .string()
     .min(8, 'Password must be at least 8 characters')

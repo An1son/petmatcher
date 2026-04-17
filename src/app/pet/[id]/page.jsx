@@ -30,6 +30,9 @@ export default function PetDetailPage({ params }) {
   const [isLoading, setIsLoading] = useState(true);
   const [activePhoto, setActivePhoto] = useState(0);
   const [messagingLoading, setMessagingLoading] = useState(false);
+  const [isLiked, setIsLiked] = useState(false);
+  const [likeLoading, setLikeLoading] = useState(false);
+  const [showLikeToast, setShowLikeToast] = useState(null); // 'liked' | 'unliked' | null
 
   useEffect(() => {
     async function loadPet() {
@@ -44,6 +47,23 @@ export default function PetDetailPage({ params }) {
       if (!error && data) {
         setPet(data);
       }
+
+      // Check if user has already liked this pet
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: interaction } = await supabase
+          .from('interactions')
+          .select('type')
+          .eq('user_id', user.id)
+          .eq('pet_id', id)
+          .in('type', ['like', 'favourite'])
+          .single();
+
+        if (interaction) {
+          setIsLiked(true);
+        }
+      }
+
       setIsLoading(false);
     }
 
@@ -93,6 +113,44 @@ export default function PetDetailPage({ params }) {
     setMessagingLoading(false);
   };
 
+  const handleToggleLike = async () => {
+    setLikeLoading(true);
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+      router.push(`/login?redirect=/pet/${id}`);
+      setLikeLoading(false);
+      return;
+    }
+
+    if (isLiked) {
+      // Remove the like
+      await supabase
+        .from('interactions')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('pet_id', id);
+      setIsLiked(false);
+      setShowLikeToast('unliked');
+    } else {
+      // Add a like (upsert to handle existing skip interactions)
+      await supabase
+        .from('interactions')
+        .upsert({
+          user_id: user.id,
+          pet_id: id,
+          type: 'like',
+        }, { onConflict: 'user_id,pet_id' });
+      setIsLiked(true);
+      setShowLikeToast('liked');
+    }
+    setLikeLoading(false);
+
+    // Auto-hide toast after 2 seconds
+    setTimeout(() => setShowLikeToast(null), 2000);
+  };
+
   if (isLoading) {
     return (
       <main className="flex min-h-dvh items-center justify-center">
@@ -116,6 +174,24 @@ export default function PetDetailPage({ params }) {
 
   return (
     <main className="min-h-dvh pb-6">
+      {/* Like/Unlike Toast */}
+      {showLikeToast && (
+        <div
+          className={`fixed top-20 left-1/2 z-50 -translate-x-1/2 transform animate-bounce rounded-full px-6 py-3 shadow-lg ${
+            showLikeToast === 'liked'
+              ? 'bg-green-500 text-white'
+              : 'bg-gray-500 text-white'
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            <Heart className={`h-5 w-5 ${showLikeToast === 'liked' ? 'fill-current' : ''}`} />
+            <span className="font-semibold">
+              {showLikeToast === 'liked' ? 'Added to Favorites!' : 'Removed from Favorites'}
+            </span>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 bg-white border-b border-gray-200">
         <button
@@ -127,10 +203,16 @@ export default function PetDetailPage({ params }) {
         </button>
         <h2 className="font-semibold text-gray-900">{pet.name}</h2>
         <button
-          className="rounded-full p-2 text-gray-600 hover:bg-gray-100 transition"
-          aria-label="Add to favorites"
+          onClick={handleToggleLike}
+          disabled={likeLoading}
+          className={`rounded-full p-2 transition ${
+            isLiked
+              ? 'text-red-500 hover:bg-red-50'
+              : 'text-gray-600 hover:bg-gray-100'
+          } disabled:opacity-50`}
+          aria-label={isLiked ? 'Remove from favorites' : 'Add to favorites'}
         >
-          <Heart className="h-5 w-5" />
+          <Heart className={`h-5 w-5 ${isLiked ? 'fill-current' : ''}`} />
         </button>
       </div>
 

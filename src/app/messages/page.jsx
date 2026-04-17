@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { MessageSquare, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { BottomNav } from '@/components/layout/bottom-nav';
@@ -12,6 +12,7 @@ export default function MessagesPage() {
   const [conversations, setConversations] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [userId, setUserId] = useState(null);
+  const [showDeleteToast, setShowDeleteToast] = useState(false);
 
   useEffect(() => {
     async function fetchConversations() {
@@ -62,6 +63,13 @@ export default function MessagesPage() {
         })
       );
 
+      // Sort by most recent message
+      enriched.sort((a, b) => {
+        const aTime = a.lastMessage?.created_at || a.updated_at || a.created_at;
+        const bTime = b.lastMessage?.created_at || b.updated_at || b.created_at;
+        return new Date(bTime) - new Date(aTime);
+      });
+
       setConversations(enriched);
       setIsLoading(false);
     }
@@ -69,8 +77,31 @@ export default function MessagesPage() {
     fetchConversations();
   }, []);
 
+  const handleDeleteConversation = useCallback(async (conversationId) => {
+    const supabase = createClient();
+
+    // Delete the conversation (messages will be cascade deleted due to FK constraint)
+    const { error } = await supabase
+      .from('conversations')
+      .delete()
+      .eq('id', conversationId);
+
+    if (!error) {
+      setConversations((prev) => prev.filter((c) => c.id !== conversationId));
+      setShowDeleteToast(true);
+      setTimeout(() => setShowDeleteToast(false), 2000);
+    }
+  }, []);
+
   return (
     <main className="min-h-dvh pb-20">
+      {/* Delete Toast */}
+      {showDeleteToast && (
+        <div className="fixed top-4 left-1/2 z-50 -translate-x-1/2 transform rounded-full bg-gray-700 px-6 py-3 shadow-lg">
+          <span className="font-semibold text-white">Conversation deleted</span>
+        </div>
+      )}
+
       <header className="sticky top-0 z-10 border-b border-gray-200 bg-white px-4 py-3">
         <h1 className="text-xl font-bold">
           <MessageSquare className="mr-2 inline-block h-5 w-5 text-orange-500" />
@@ -106,6 +137,7 @@ export default function MessagesPage() {
                 conversation={convo}
                 href={`/messages/${convo.id}`}
                 otherPartyName={convo.shelter?.name || 'Shelter'}
+                onDelete={handleDeleteConversation}
               />
             ))}
           </div>

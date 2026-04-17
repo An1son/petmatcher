@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, MessageSquare, Loader2 } from 'lucide-react';
 import { ConversationListItem } from '@/components/messages/conversation-list-item';
@@ -10,6 +10,7 @@ export default function ShelterMessagesPage() {
   const [conversations, setConversations] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [userId, setUserId] = useState(null);
+  const [showDeleteToast, setShowDeleteToast] = useState(false);
 
   useEffect(() => {
     async function fetchConversations() {
@@ -72,6 +73,13 @@ export default function ShelterMessagesPage() {
         })
       );
 
+      // Sort by most recent message
+      enriched.sort((a, b) => {
+        const aTime = a.lastMessage?.created_at || a.updated_at || a.created_at;
+        const bTime = b.lastMessage?.created_at || b.updated_at || b.created_at;
+        return new Date(bTime) - new Date(aTime);
+      });
+
       setConversations(enriched);
       setIsLoading(false);
     }
@@ -79,8 +87,31 @@ export default function ShelterMessagesPage() {
     fetchConversations();
   }, []);
 
+  const handleDeleteConversation = useCallback(async (conversationId) => {
+    const supabase = createClient();
+
+    // Delete the conversation (messages will be cascade deleted due to FK constraint)
+    const { error } = await supabase
+      .from('conversations')
+      .delete()
+      .eq('id', conversationId);
+
+    if (!error) {
+      setConversations((prev) => prev.filter((c) => c.id !== conversationId));
+      setShowDeleteToast(true);
+      setTimeout(() => setShowDeleteToast(false), 2000);
+    }
+  }, []);
+
   return (
     <main className="min-h-dvh bg-gray-50">
+      {/* Delete Toast */}
+      {showDeleteToast && (
+        <div className="fixed top-4 left-1/2 z-50 -translate-x-1/2 transform rounded-full bg-gray-700 px-6 py-3 shadow-lg">
+          <span className="font-semibold text-white">Conversation deleted</span>
+        </div>
+      )}
+
       <header className="bg-white border-b border-gray-200 px-6 py-4">
         <div className="flex items-center gap-4">
           <Link href="/dashboard" className="text-gray-600 hover:text-gray-900">
@@ -117,6 +148,7 @@ export default function ShelterMessagesPage() {
                 conversation={convo}
                 href={`/dashboard/messages/${convo.id}`}
                 otherPartyName={convo.adopter?.name || 'Adopter'}
+                onDelete={handleDeleteConversation}
               />
             ))}
           </div>
