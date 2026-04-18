@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { User, LogOut, ChevronRight, Heart } from 'lucide-react';
+import { User, LogOut, ChevronRight, Heart, Star, Info } from 'lucide-react';
 import { BottomNav } from '@/components/layout/bottom-nav';
 import { Button } from '@/components/ui/button';
 import { createClient } from '@/lib/supabase/client';
@@ -11,7 +11,6 @@ export default function ProfilePage() {
   const router = useRouter();
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState({ viewed: 0, favorites: 0 });
 
   useEffect(() => {
     const getUser = async () => {
@@ -24,23 +23,6 @@ export default function ProfilePage() {
           name: authUser.user_metadata?.name || 'Pet Lover',
         });
 
-        // Fetch real stats in parallel
-        const [viewedRes, favoritesRes] = await Promise.all([
-          supabase
-            .from('interactions')
-            .select('id', { count: 'exact', head: true })
-            .eq('user_id', authUser.id),
-          supabase
-            .from('interactions')
-            .select('id', { count: 'exact', head: true })
-            .eq('user_id', authUser.id)
-            .in('type', ['like', 'favourite']),
-        ]);
-
-        setStats({
-          viewed: viewedRes.count || 0,
-          favorites: favoritesRes.count || 0,
-        });
       }
       setLoading(false);
     };
@@ -68,7 +50,15 @@ export default function ProfilePage() {
       href: '/profile/preferences',
       description: 'Manage your pet preferences',
     },
+    {
+      icon: Star,
+      label: 'My Favourites',
+      href: '/favorites',
+      description: 'View your saved pets',
+    },
   ];
+
+  const [showAbout, setShowAbout] = useState(false);
 
   if (loading) {
     return (
@@ -97,22 +87,8 @@ export default function ProfilePage() {
         </div>
       </header>
 
-      {/* Stats */}
-      <div className="-mt-4 mx-auto max-w-2xl px-4">
-      <div className="grid grid-cols-2 gap-3 rounded-xl bg-white p-4 shadow-md">
-        <div className="text-center">
-          <p className="text-2xl font-bold text-orange-500">{stats.viewed}</p>
-          <p className="text-xs text-gray-500">Pets Viewed</p>
-        </div>
-        <div className="text-center">
-          <p className="text-2xl font-bold text-green-500">{stats.favorites}</p>
-          <p className="text-xs text-gray-500">Favorites</p>
-        </div>
-      </div>
-      </div>
-
       {/* Menu Items */}
-      <div className="mx-auto max-w-2xl mt-6 px-4">
+      <div className="mx-auto max-w-2xl mt-4 px-4">
         <div className="overflow-hidden rounded-xl bg-white shadow-md">
           {menuItems.map((item, index) => (
             <button
@@ -132,6 +108,44 @@ export default function ProfilePage() {
               <ChevronRight className="h-5 w-5 text-gray-400" />
             </button>
           ))}
+        </div>
+      </div>
+
+      {/* About PetMatcher */}
+      <div className="mx-auto max-w-2xl mt-4 px-4">
+        <div className="overflow-hidden rounded-xl bg-white shadow-md">
+          <button
+            onClick={() => setShowAbout(!showAbout)}
+            className="flex w-full items-center gap-4 px-4 py-3 text-left transition hover:bg-gray-50"
+          >
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-orange-100">
+              <Info className="h-5 w-5 text-orange-500" />
+            </div>
+            <div className="flex-1">
+              <p className="font-medium text-gray-900">About PetMatcher</p>
+              <p className="text-xs text-gray-500">Learn more about this app</p>
+            </div>
+            <ChevronRight className={`h-5 w-5 text-gray-400 transition-transform ${showAbout ? 'rotate-90' : ''}`} />
+          </button>
+          {showAbout && (
+            <div className="border-t border-gray-100 px-4 py-4 text-sm text-gray-600 space-y-2">
+              <p className="font-semibold text-gray-900">PetMatcher</p>
+              <p>
+                A swipe-based, preference-aware web app designed to connect adopters
+                with shelter pets. Browse adoptable animals, get personalized
+                recommendations, and message shelters directly.
+              </p>
+              <p className="font-semibold text-gray-900 mt-3">Why PetMatcher?</p>
+              <p>
+                Canadian shelters receive approximately 80,000 animals annually, yet only
+                44% of dogs and 62% of cats find adoptive homes in time. With surrenders
+                rising 21% as of 2024, traditional list-style platforms contribute to
+                decision fatigue and lower engagement. PetMatcher offers an interactive,
+                gamified experience to help younger adopters discover their perfect match
+                faster.
+              </p>
+            </div>
+          )}
         </div>
       </div>
 
