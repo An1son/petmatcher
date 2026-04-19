@@ -187,9 +187,11 @@ export default function BrowsePage() {
       if (prefs.preferred_province) setFilterProvince(prefs.preferred_province);
       if (prefs.max_adoption_fee != null) setFilterMaxFee(String(prefs.max_adoption_fee));
 
-      // Filter out already-seen pets
-      const seenIds = new Set(interactions.map((i) => i.pet_id));
-      let unseenPets = allPets.filter((p) => !seenIds.has(p.id));
+      // Only exclude liked/favourited pets — skipped pets are allowed to re-surface
+      const excludedIds = new Set(
+        interactions.filter((i) => i.type === 'like' || i.type === 'favourite').map((i) => i.pet_id)
+      );
+      let unseenPets = allPets.filter((p) => !excludedIds.has(p.id));
 
       // Apply location/fee filters
       unseenPets = applyFilters(unseenPets, prefs.preferred_province || '', '', prefs.max_adoption_fee != null ? String(prefs.max_adoption_fee) : '');
@@ -295,7 +297,7 @@ export default function BrowsePage() {
     if (city) result = result.filter((p) => p.city.toLowerCase().includes(city.toLowerCase()));
     if (maxFee !== '' && !isNaN(Number(maxFee))) {
       const max = Number(maxFee);
-      result = result.filter((p) => p.adoption_fee == null || Number(p.adoption_fee) <= max);
+      result = result.filter((p) => p.adoption_fee != null && Number(p.adoption_fee) <= max);
     }
     return result;
   }
@@ -333,8 +335,10 @@ export default function BrowsePage() {
     if (!userPreferences || allPetsRef.current.length === 0) return;
 
     const allPets = allPetsRef.current;
-    const seenIds = new Set(userInteractions.map((i) => i.pet_id));
-    const unseenPets = allPets.filter((p) => !seenIds.has(p.id));
+    const excludedIds = new Set(
+      userInteractions.filter((i) => i.type === 'like' || i.type === 'favourite').map((i) => i.pet_id)
+    );
+    const unseenPets = allPets.filter((p) => !excludedIds.has(p.id));
     const sorted = scoreAndSortPets(unseenPets, userPreferences, userInteractions, allPets);
     setPets(sorted);
     setCurrentIndex(0);

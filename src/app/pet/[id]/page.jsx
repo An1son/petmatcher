@@ -33,6 +33,7 @@ export default function PetDetailPage({ params }) {
   const [isLiked, setIsLiked] = useState(false);
   const [likeLoading, setLikeLoading] = useState(false);
   const [showLikeToast, setShowLikeToast] = useState(null); // 'liked' | 'unliked' | null
+  const [showPhone, setShowPhone] = useState(false);
 
   useEffect(() => {
     async function loadPet() {
@@ -377,26 +378,33 @@ export default function PetDetailPage({ params }) {
                   <Mail className="h-4 w-4" />
                   Email
                 </a>
-                {pet.shelter.phone && (
-                  <a
-                    href={`tel:${pet.shelter.phone}`}
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setShowPhone((s) => !s)}
+                    aria-expanded={showPhone}
                     className="flex items-center gap-1 rounded-full bg-white px-3 py-1 text-sm text-gray-700 shadow-sm"
                   >
                     <Phone className="h-4 w-4" />
                     Call
-                  </a>
-                )}
-                {pet.shelter.website_url && (
-                  <a
-                    href={pet.shelter.website_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-1 rounded-full bg-white px-3 py-1 text-sm text-gray-700 shadow-sm"
-                  >
-                    <ExternalLink className="h-4 w-4" />
-                    Website
-                  </a>
-                )}
+                  </button>
+                  {showPhone && (
+                    <div className="absolute left-0 top-full z-10 mt-2 rounded-lg bg-white px-4 py-2 text-sm text-gray-800 shadow-lg ring-1 ring-gray-200">
+                      <a href="tel:1234567890" className="font-medium hover:underline">
+                        123-456-7890
+                      </a>
+                    </div>
+                  )}
+                </div>
+                <a
+                  href="https://spca.bc.ca/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1 rounded-full bg-white px-3 py-1 text-sm text-gray-700 shadow-sm"
+                >
+                  <ExternalLink className="h-4 w-4" />
+                  Website
+                </a>
               </div>
             </div>
 
